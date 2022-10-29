@@ -5,7 +5,8 @@ import { Slider, Typography } from "@mui/material";
 import { bitPayConf, firebaseConfig } from "./env";
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { fontSize } from "@mui/system";
 
 const app = initializeApp(firebaseConfig);
 //const analytics = getAnalytics(app);
@@ -24,20 +25,24 @@ const Begger = (props: any) => {
 
   const openInvoice = (invoiceAmount: number) => {
     fetch(`/api/invoice?amount=` + invoiceAmount).then((res: Response) => {
-      res.json().then((value) => {
-        console.log(value);
+      res.json().then((res_json) => {
+        console.log(res_json);
+        props.setInvoice(res_json);
         const script = document.createElement("script");
         script.innerHTML = `bitpay.enableTestMode();
         const event = new Event('closed');
           bitpay.onModalWillLeave(() => {
             window.dispatchEvent(event);
           }); 
-          bitpay.showInvoice("${value.data.id}");
+          bitpay.showInvoice("${res_json.data.id}");
         `;
-        console.log(script);
-        window.addEventListener("closed", function (event) {
-          props.setStatus("monitor")
-        }, false);
+        window.addEventListener(
+          "closed",
+          function (event) {
+            props.setStatus("monitor");
+          },
+          false
+        );
         document.head.appendChild(script);
       });
     });
@@ -63,7 +68,7 @@ const Begger = (props: any) => {
       </Typography>
       <img
         onClick={() => {
-          openInvoice(value);
+          openInvoice(textValue);
         }}
         src="https://test.bitpay.com/cdn/en_US/bp-btn-pay-currencies.svg"
         style={{ width: "250px" }}
@@ -73,15 +78,30 @@ const Begger = (props: any) => {
   );
 };
 
-const Monitor = () => {
-  return <>
-    <h1 className={styles.title}>You closed the modal.</h1>
-  </>;
+const Monitor = (props: any) => {
+  const [invoiceStatus, setInvoiceStatus] = useState("");
+
+  useEffect(() => {
+    fetch(
+      "https://test.bitpay.com/invoices/" +
+        props.invoice.data.id +
+        "?token=99UPMfGDeBRMj8jSs4x5Qa1e52u1M5M2rAoBAqQRzExM"
+    ).then((res) => {res.json()});
+  }, []);
+
+  return (
+    <>
+      <h1 className={styles.title}>You closed the modal.</h1>
+      <h3 className={styles.title} style={{ fontSize: "2rem" }}>
+        {props.invoice.data.id}
+      </h3>
+    </>
+  );
 };
 
 const Home: NextPage = () => {
   const [status, setStatus] = useState("beggin");
-  const [invoice, setInvoice] = useState({} as any)
+  const [invoice, setInvoice] = useState({} as any);
   return (
     <div className={styles.container}>
       <Head>
@@ -92,7 +112,11 @@ const Home: NextPage = () => {
       </Head>
 
       <main className={styles.main}>
-        {status == "beggin" ? <Begger setStatus={setStatus} setInvoice={setInvoice}/> : <Monitor />}
+        {status == "beggin" ? (
+          <Begger setStatus={setStatus} setInvoice={setInvoice} />
+        ) : (
+          <Monitor invoice={invoice} />
+        )}
       </main>
     </div>
   );
